@@ -1,0 +1,7 @@
+Jinja2==2.7.3
+folium==0.1.2
+numpy==1.8.1
+pandas==0.14.1
+pyspatialite==3.0.1
+regex==2014.06.28
+urllib3==1.7.1
