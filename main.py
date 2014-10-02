@@ -9,8 +9,14 @@ Retrieve, view, store and map METAR meterological information.
 Dependencies
 -------
 
+This module requires SQLlite/Spatialite to store, manage and retrieve data,
+and a Python API to it: pyspatialite.
+It also requires Folium, a neat Python library for creating Leaflet maps.
+Finally we need wxPython, for making a GUI.
+
 pyspatialite (and hence sqlite3 and spatialite): pip install pyspatialite
 folium (and hence pandas, numpy and jinja2): pip install folium
+wx: pip install wxpython
 
 See ./requirements.txt
 
@@ -27,12 +33,12 @@ Date
 '''
 
 import urllib2 # For acquring station data .TXT files
+import webbrowser # To see output
 import re # For matching patterns in the .TXT files to extract useful data
 import datetime as dt # For creating a datetime object of the observation time
 import calendar # To convert datetime to UNIX timestamp
 from pyspatialite import dbapi2 as dbapi # For storage and retrieval of spatial and non-spatial data
 import folium # For building a Leaflet tile map
-
 
 class METARTxtFile:
     '''
@@ -311,7 +317,7 @@ class metarsqlite3db:
 	        (SELECT rowid FROM metarvals 
 	        WHERE station = station
 	        ORDER BY utc DESC)
-        AND CAST(M(geom) AS INTEGER) >= '%s'
+        AND CAST(M(geom) AS INTEGER) >= '%s' --M coordinate is time, so check curremcy
         GROUP BY station
         ORDER BY utc DESC;
         ''' % (str(nDaysAgo(1)))
@@ -417,9 +423,10 @@ def nDaysAgo(n):
     nago = calendar.timegm(nago.utctimetuple()) # Now, n days ago, as UNIX timestamp
     return nago
    
-def main(verbose=False):
+def main(verbose=True):
     # Create or connect to DB
     metardb = metarsqlite3db('./data/metar.db')
+    output = 'testmap'
     # Loop through stations we care about, adding their data to the DB if it
     # has not already been collected
     stations = ['NZWN', 'NZAA', 'NZCH']
@@ -432,7 +439,9 @@ def main(verbose=False):
     # TODO: Add note about download as GPKG, ogr2ogr to geojson
     # ogr2ogr -f GeoJSON -t_srs 'EPSG:4326' ./data/test.json ./data/lds-nz-mainland-coastlines-topo-1250k-GPKG/nz-mainland-coastlines-topo-1250k.gpkg
     coastline = './data/test_topo.json'
-    fmap.makeMap('testmap', coastline) # TODO Add these as parameters in __init__
+    fmap.makeMap(output, coastline) # TODO Add these as parameters in __init__
+    #webbrowser.open(output+".html",new=2)
+    #webbrowser.close()
     return None
         
 if __name__ == '__main__':
