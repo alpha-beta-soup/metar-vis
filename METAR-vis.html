@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<head>
+   <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5/leaflet.css" />
+   <script src="http://cdn.leafletjs.com/leaflet-0.5/leaflet.js"></script>
+   <script src="leaflet-dvf.markers.min.js"></script>
+   
+   
+   
+
+
+<style>
+
+#map {
+  position:absolute;
+  top:0;
+  bottom:0;
+  right:0;
+  left:0;
+}
+
+</style>
+</head>
+<body>
+
+        <div id="map" style="width: 100%px; height: 100%px"></div>
+
+<script>
+
+
+
+var map = L.map('map').setView([-40.15, 173.405], 6);
+
+L.tileLayer('http://{s}.tiles.mapbox.com/v3/mapbox.world-bright/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: 'Map tiles by <a href="http://www.mapbox.com/m">Mapbox</a> Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, under <a href="http://creativecommons.org/licenses/by-sa/3.0">CC BY SA</a>.'
+}).addTo(map);
+
+
+var polygon_1 = new L.RegularPolygonMarker(new L.LatLng(-37.01, 174.48), {
+    color: 'black',
+    opacity: 1,
+    weight: 2,
+    fillColor: '#F4A582',
+    fillOpacity: 1,
+    numberOfSides: 3,
+    rotation: 290,
+    radius: 17
+});
+polygon_1._latlng = polygon_1._centerLatLng
+polygon_1.bindPopup("NZAA\, Auckland Airport<br>UTC 2014\-10\-05 04\:30\:00<br>Wind speed\: <b>17 mph</b><br>Direction\: <b>260 degrees</b><br>Temperature\: <b>14 C</b>");
+map.addLayer(polygon_1)
+
+var polygon_2 = new L.RegularPolygonMarker(new L.LatLng(-43.29, 172.33), {
+    color: 'black',
+    opacity: 1,
+    weight: 2,
+    fillColor: '#D6604D',
+    fillOpacity: 1,
+    numberOfSides: 3,
+    rotation: 340,
+    radius: 18
+});
+polygon_2._latlng = polygon_2._centerLatLng
+polygon_2.bindPopup("NZCH\, Christchurch<br>UTC 2014\-10\-05 04\:30\:00<br>Wind speed\: <b>18 mph</b><br>Direction\: <b>310 degrees</b><br>Temperature\: <b>16 C</b>");
+map.addLayer(polygon_2)
+
+var polygon_3 = new L.RegularPolygonMarker(new L.LatLng(-41.2, 174.48), {
+    color: 'black',
+    opacity: 1,
+    weight: 2,
+    fillColor: '#F4A582',
+    fillOpacity: 1,
+    numberOfSides: 3,
+    rotation: 390,
+    radius: 17
+});
+polygon_3._latlng = polygon_3._centerLatLng
+polygon_3.bindPopup("NZWN\, Wellington Airport<br>UTC 2014\-10\-05 04\:30\:00<br>Wind speed\: <b>17 mph</b><br>Direction\: <b>360 degrees</b><br>Temperature\: <b>14 C</b>");
+map.addLayer(polygon_3)
+
+
+var popup = L.popup();
+
+function latLngPop(e) {
+    popup.setLatLng(e.latlng)
+         .setContent("Latitude: " + e.latlng.lat.toFixed(4) +
+                     "<br>Longitude: " + e.latlng.lng.toFixed(4))
+         .openOn(map);
+}
+
+map.on('click', latLngPop);
+
+
+
+</script>
+
+</body>
