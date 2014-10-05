@@ -38,6 +38,7 @@ Still if you want to try, I used `bbFreeze` to make one on Linux. This largely r
 After `setup.py` has created the executable in its directory, there is still work to be done. Just running the executable without this work leads to an error with `Jinja2` being unable to find the `folium/templates` and `folium/plugins` directories. This is because `bbFreeze` seems to ignore them when compiling the Folium Python library to the standalone, as they are not Python scripts, but local `.txt` files.
 
 So, after running `python setup.py`, open `distdir` and find `library.zip`.
+
 1. Copy `library.zip` to the Desktop or other suitable place.
 2. Extract (unzip) the files from `library.zip` to the Desktop.
 3. Find where Folium is installed on your computer (probably `/usr/local/lib/python2.7/dist-packages/folium/`).
