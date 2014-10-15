@@ -7,6 +7,8 @@ This is a minimal module to scrape METAR the most recent METAR information
 for a set of user-defined stations, store it in a SQLite/Spatialite database
 for posterity, and display the most recent reports on a Leaflet map.
 
+[Live demo](http://www.nearimprov.com/metar-vis/METAR-vis.html).
+
 ## Usage
 
 One can use the standalone Linux GUI, or execute the source code.
