@@ -34,10 +34,12 @@ import webbrowser # To see output
 import re # For matching patterns in the .TXT files to extract useful data
 import datetime as dt # For creating a datetime object of the observation time
 import calendar # To convert datetime to UNIX timestamp
-from pyspatialite import dbapi2 as dbapi # For storage and retrieval of spatial and non-spatial data
-import folium # For building a Leaflet tile map
 import os
 import time
+
+from pyspatialite import dbapi2 as dbapi # For storage and retrieval of spatial and non-spatial data
+import folium # For building a Leaflet tile map
+from bs4 import BeautifulSoup
 
 class METARTxtFile:
     '''
@@ -53,10 +55,17 @@ class METARTxtFile:
         source = 'http://weather.noaa.gov/pub/data/observations/metar/decoded/'
         self.url = source + station + '.TXT'
         self.station = station
-        self.text = urllib2.urlopen(self.url)
+        try:
+            self.text = urllib2.urlopen(self.url)
+        except urllib2.HTTPError, e:
+            
+            if 'Error 403: Forbidden' in str(e):
+                # Restricted site, do nothing
+                print 'Cannot process {station}: {forbidden}'.format(station=self.station,
+                                                                     forbidden=str(e))
+                return None
         self.dataList = self.text.readlines()
         self.datadict = self.makeDataDict()
-        
         locale = self.getLine(0) # Location
         if locale == 'Station name not available':
             self.locale = None
@@ -103,7 +112,7 @@ class METARTxtFile:
         '''
         if self.locale == None:
             return None
-        pattern = '[\w, ]*,' # regex pattern
+        pattern = '[\w,\s]+,' # regex pattern
         m = re.search(pattern, self.locale)
         if m == None:
             return None
@@ -121,7 +130,7 @@ class METARTxtFile:
         '''
         if self.locale == None:
             return None
-        pattern = ', [\w\s]* \(' # regex pattern
+        pattern = ',\s\w+\s\(' # regex pattern
         m = re.search(pattern, self.locale)
         if m == None:
             return None
@@ -139,7 +148,7 @@ class METARTxtFile:
             output: (-43.29, 172.33)'''
         if self.locale == None:
             return None
-        patterns = ['\) \d*-\d*[S,N]', '\d*-\d*[E,W]']
+        patterns = ['\)\s\d+-\d+[S,N]', '\s\d+-\d+[E,W]']
         coords = ()
         for pattern in patterns:
             m = re.search(pattern, self.locale)
@@ -166,21 +175,21 @@ class METARTxtFile:
         Does not handle negative elevations'''
         if self.locale == None:
             return None
-        pattern = '[E,W] \d*M'
+        pattern = '[E,W]\s\d+M'
         m = re.search(pattern, self.locale)
         if m == None:
             return None
-        else:
-            m = m.group()
-            m = m.replace('E ','').replace('W ','')
-            if m[-1] != 'M':
-                raise Exception # Elevation not in metres
-            return int(m.strip('M'))
+        m = m.group()
+        m = m.replace('E ','').replace('W ','')
+        if m[-1] != 'M':
+            raise Exception # Elevation not in metres
+        m = m.strip('M')
+        return int(m)
             
     def xyzmstring(self):
         '''Returns a WKT representation of the XYZM point, where M is UNIX time
         of the measurement (from the UTC recorded time).'''
-        if self.locale == None:
+        if self.locale is None or self.localeXY() is None:
             # It has no location, only an M value, so we don't populate its location
             return None
         # NOTE: have to give lon lat
@@ -195,17 +204,30 @@ class METARTxtFile:
         if m == None:
             return None
         else:
-            dtobj = dt.datetime.strptime(m.group(), '%Y.%m.%d %H%M %Z')
-            return dtobj
+            try:
+                m = dt.datetime.strptime(m.group(), '%Y.%m.%d %H%M %Z')
+            except ValueError, e:
+                if '2400' in m.group():
+                    # Ugh, 2400 is not a time!
+                    m = m.group()
+                    m = m.split(' ')[0]
+                    m = dt.datetime.strptime(m,'%Y.%m.%d')
+                    m = m + dt.timedelta(days=1)
+                else:
+                    print "Station {station}: cannot parse date/time {date}".format(station=self.station,date=self.when)
+                    return None    
+            return m
             
     def windSpeed(self, MPH=True):
         '''Returns the wind speed
         if MPH: returns an integer in miles per hour (MPH)
         else: returns an integer in knots (KT)'''
+        if self.wind is None:
+            return None
         if MPH == True:
-            pattern = '\d* MPH'
+            pattern = '\d+\sMPH'
         else:
-            pattern = '\d* KT'
+            pattern = '\d+\sKT'
         m = re.search(pattern, self.wind)
         if m == None:
             if 'calm' in self.wind.lower():
@@ -219,7 +241,9 @@ class METARTxtFile:
         '''Returns the wind direction in degrees, as an integer
         Example input (self.wind): "Wind: from the SE (130 degrees) at 12 MPH (10 KT):0"
         Example output: 130'''
-        pattern = '\d* degrees'
+        if self.wind is None:
+            return None
+        pattern = '\d+\sdegrees'
         m = re.search(pattern, self.wind)
         if m == None:
             if 'calm' in self.wind.lower():
@@ -233,10 +257,12 @@ class METARTxtFile:
         '''Returns the temperature
         if celsius: returns an integer in degrees Celsius
         else: returns an integer in degrees fahrenheit'''
+        if self.temperature is None:
+            return None
         if celsius == True:
-            pattern = '\d* C'
+            pattern = '\d+\sC'
         else:
-            pattern = '\d* F'
+            pattern = '\d+\sF'
         m = re.search(pattern, self.temperature)
         if m == None:
             return None
@@ -483,7 +509,7 @@ class foliumMap():
         '''
         if temp < 0:
             return '#2166AC'
-        elif temp > 18:
+        elif temp > 19:
             return '#B2182B'
         else:
             colours = {'#4393C3': range(0,4),
@@ -520,7 +546,10 @@ class foliumMap():
                  have the same popups.
         '''
         for row in self.metardb.returnMostRecent(restrict=self.restrict, returnDict=True):
-            popup = '%s, %s\nUTC %s\nWind speed: <b>%d mph</b>\nDirection: <b>%d degrees</b>\nTemperature: <b>%d C</b>' % (row['station'], row['label'], str(row['utc']), row['windspeed_mph'], row['winddirection'], row['temperature_c'])
+            try:
+                popup = '%s, %s\nUTC %s\nWind speed: <b>%d mph</b>\nDirection: <b>%d degrees</b>\nTemperature: <b>%d C</b>' % (row['station'], row['label'], str(row['utc']), row['windspeed_mph'], row['winddirection'], row['temperature_c'])
+            except:
+                continue
             # Handle jQuery special characters in the pop-up
             for sc in [':',',','\n','-']:
                 if sc == '\n':
@@ -559,7 +588,8 @@ def main(stations=['NZWN','NZAA','NZCH'], metardb='./data/metar.db', output='MET
     Adjust the values in main essentially as a config file.
     
     Input (see default values for examples):
-    stations -- A list of station names to retrieve/store/dislpay data for
+    stations -- A list of station names to retrieve/store/dislpay data for.
+                Default: ['NZWN','NZAA','NZCH']
     metardb -- A path to the SQLite3 database. If it does not exist, it will be
                created.
     output -- Name and path of the output map
@@ -572,11 +602,19 @@ def main(stations=['NZWN','NZAA','NZCH'], metardb='./data/metar.db', output='MET
     '''
     # Create or connect to DB
     metardb = metarsqlite3db(metardb, verbose=False)
+    '''
     # Loop through stations we care about, adding their data to the DB if it
     # has not already been collected
-    for station in stations:
+    
+    for i, station in enumerate(stations):
+        if station == 'OMDI':
+            index = i
+            break
+            
+    for station in stations[index:]:
+        if verbose: print(station)
         metar = METARTxtFile(station, metardb)
-        if verbose: print(metar.station)
+    '''
     if show == True:
         # Instantiate the map object and plot the relevant points
         fmap = foliumMap(metardb, output, tiles, stations, coastline)
@@ -586,6 +624,15 @@ def main(stations=['NZWN','NZAA','NZCH'], metardb='./data/metar.db', output='MET
             time.sleep(2) # Allow time to open the map, then return control
             break
     return None
+
+def getStations():
+    '''
+    Gets all of the available METAR stations, as a list of station code strings.
+    '''
+    response = urllib2.urlopen('http://weather.noaa.gov/pub/data/observations/metar/decoded/')
+    html = response.read()
+    soup = BeautifulSoup(html).find_all('a')
+    return [str(s.get('href')).split('.')[0] for s in soup if '.TXT' in str(s.get('href'))]
         
 if __name__ == '__main__':
-    main()
+    main(stations=getStations(),show=True)
