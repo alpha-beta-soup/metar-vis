@@ -3,9 +3,10 @@
 Retrieve, view, store and map METAR meterological information.
 
 METAR data are routine weather reports provided at fixed intervals.
-This is a minimal module to scrape METAR the most recent METAR information
-for a set of user-defined stations, store it in a SQLite/Spatialite database
-for posterity, and display the most recent reports on a Leaflet map.
+This is a minimal program to scrape the most recent METAR information
+for a set of user-defined stations (or all of them), store it in a
+SQLite/Spatialite database for posterity, and display the most recent reports on
+a Leaflet map.
 
 [Live demo](http://www.nearimprov.com/metar-vis/METAR-vis.html).
 
